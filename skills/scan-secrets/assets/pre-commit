@@ -1,0 +1,63 @@
+#!/bin/sh
+# Bloque un commit qui emporterait un secret.
+# S'applique que le commit vienne d'un humain ou d'un agent.
+# Installation : ~/.claude/skills/scan-secrets/assets/hook-secrets poser <dépôt>
+
+IMAGE="trufflesecurity/trufflehog:latest"
+RACINE="$(git rev-parse --show-toplevel)"
+
+# Périmètre : la source « git » de TruffleHog, qui couvre l'index (rapporté comme
+# « Staged ») et le dernier commit — exactement ce qui est sur le point de partir.
+#
+# Le scan « filesystem » de la racine est délibérément ÉCARTÉ d'un hook : mesuré sur
+# un dépôt réel de 2,4 Go, il prend 72 s et remonte 93 secrets dont 91 vivent dans
+# .venv/ et target/ — des dépendances installées, jamais versionnées, qui ne partiront
+# dans aucun commit. Le même dépôt scanné côté git : 3 s, rien à signaler. Un hook
+# lent et faux est un hook qu'on désactive. Pour l'audit large, voir /scan-secrets.
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "❌ SÉCURITÉ : docker introuvable, le scan n'a pas pu tourner. Commit bloqué."
+  exit 1
+fi
+if ! docker info >/dev/null 2>&1; then
+  echo "❌ SÉCURITÉ : le démon Docker ne répond pas, le scan n'a pas pu tourner. Commit bloqué."
+  exit 1
+fi
+
+# Les motifs sont assemblés hors du dépôt. La source « git » nomme les fichiers
+# relativement à la racine (tests/x.py), la source « filesystem » les préfixe de
+# /workspace/ : on écrit les deux formes pour que les mêmes motifs valent partout.
+MOTIFS="$(mktemp)"
+trap 'rm -f "$MOTIFS"' EXIT
+: > "$MOTIFS"
+if [ -f "$RACINE/.trufflehog-exclude" ]; then
+  grep -v '^[[:space:]]*#' "$RACINE/.trufflehog-exclude" | grep -v '^[[:space:]]*$' | \
+  while IFS= read -r motif; do
+    printf '%s\n' "$motif"
+    printf '%s\n' "$motif" | sed 's|^\^|^/workspace/|'
+  done >> "$MOTIFS"
+fi
+
+# La sortie contient les secrets en clair : elle ne touche jamais le dépôt.
+SORTIE="$(mktemp)"
+docker run --rm -v "$RACINE":/workspace -v "$MOTIFS":/motifs.txt:ro "$IMAGE" \
+  git file:///workspace --max-depth=1 \
+  --json --fail --fail-on-scan-errors --no-update --exclude-paths=/motifs.txt \
+  >"$SORTIE" 2>/dev/null
+CODE=$?
+
+case "$CODE" in
+  0)
+    rm -f "$SORTIE"
+    exit 0 ;;
+  183)
+    echo "❌ SÉCURITÉ : secret détecté dans ce qui allait être commité. Commit bloqué."
+    grep -o '"DetectorName":"[^"]*"' "$SORTIE" | sort -u | sed 's/^/   /'
+    echo "   Détail : $SORTIE  (supprime-le après lecture, il contient les secrets en clair)"
+    echo "   Secret réel ? révoque-le d'abord. Faux positif ? ajoute son chemin à .trufflehog-exclude"
+    exit 1 ;;
+  *)
+    rm -f "$SORTIE"
+    echo "❌ SÉCURITÉ : le scan a échoué (code $CODE). Rien n'a été vérifié. Commit bloqué."
+    exit 1 ;;
+esac
