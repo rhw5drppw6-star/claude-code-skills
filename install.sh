@@ -5,6 +5,7 @@
 #   ./install.sh --force      écrase
 #   ./install.sh --link       liens symboliques vers ce dépôt (suit les mises à jour)
 #
+# Pose aussi bin/claude-clean.sh dans ~/bin/ (la boucle checkpoint, alias cl).
 # Redémarre Claude Code après : les commandes apparaissent avec /.
 
 set -e
@@ -23,7 +24,9 @@ for a in "$@"; do
   esac
 done
 
-mkdir -p "$CIBLE/commands" "$CIBLE/skills"
+BIN="${CLAUDE_BIN:-$HOME/bin}"
+
+mkdir -p "$CIBLE/commands" "$CIBLE/skills" "$BIN"
 
 poser() {
   src="$1"; dst="$2"; nom="$3"
@@ -54,13 +57,17 @@ for d in "$SOURCE"/skills/*/; do
   poser "${d%/}" "$CIBLE/skills/$nom" "$nom"
 done
 
-# Les deux scripts shell de scan-secrets doivent rester exécutables.
-for f in "$CIBLE/skills/scan-secrets/assets/pre-commit" "$CIBLE/skills/scan-secrets/assets/hook-secrets"; do
+echo "Script → $BIN/"
+poser "$SOURCE/bin/claude-clean.sh" "$BIN/claude-clean.sh" "claude-clean.sh"
+
+# Les scripts shell doivent rester exécutables.
+for f in "$CIBLE/skills/scan-secrets/assets/pre-commit" "$CIBLE/skills/scan-secrets/assets/hook-secrets" "$BIN/claude-clean.sh"; do
   [ -f "$f" ] && chmod +x "$f"
 done
 
 echo
 echo "Terminé. Redémarre Claude Code, puis tape / pour voir les commandes."
+echo "Pour la boucle checkpoint, ajoute à ton ~/.zshrc :  alias cl='$BIN/claude-clean.sh'"
 if [ -d "$CIBLE/skills/scan-secrets" ]; then
   echo "scan-secrets a besoin de Docker. Pour poser le hook sur un dépôt :"
   echo "  $CIBLE/skills/scan-secrets/assets/hook-secrets poser <dépôt>"

@@ -1,7 +1,8 @@
 # Skills & commandes perso pour Claude Code
 
 Huit extensions que j'utilise au quotidien dans [Claude Code](https://claude.com/claude-code) :
-cinq commandes (`~/.claude/commands/`) et trois skills (`~/.claude/skills/`).
+cinq commandes (`~/.claude/commands/`), trois skills (`~/.claude/skills/`) et un script
+shell (`bin/`) qui referme le cycle de mémoire.
 Écrites en français, testées sur des dépôts réels.
 
 ## Ce qu'il y a dedans
@@ -18,6 +19,23 @@ doit survivre de ce qui doit disparaître.
 | `/reprise [nom]` | Relit le dernier checkpoint, le **confronte au dépôt** (les fichiers existent-ils encore ? l'étape suivante a-t-elle déjà été faite ?), résume les écarts, puis attend une confirmation. |
 
 **Durable → `CLAUDE.md` · éphémère → checkpoint · redémarrage → reprise.**
+
+#### `cl` — la boucle qui referme le cycle
+
+`bin/claude-clean.sh` lance Claude Code et, quand la session se termine, regarde si
+`/checkpoint` a laissé un `_clear_trigger.txt` dans le dossier courant. Si oui, il
+l'archive dans `.claude/checkpoints/` et **relance Claude dans une session neuve** avec
+ce fichier comme prompt initial — le contexte est propre, l'acquis est conservé. Il
+recommence tant qu'un nouveau checkpoint apparaît.
+
+```bash
+cl                  # dans le dossier du projet
+cl --model opus     # les arguments passent au premier lancement
+```
+
+Un trigger périmé laissé par une session passée est archivé et ignoré, jamais rejoué.
+Le fil des checkpoints reste relisible dans `.claude/checkpoints/` — c'est là que
+`/reprise` va chercher.
 
 ### Cadrage et construction
 
@@ -42,8 +60,8 @@ cd claude-code-skills
 ./install.sh
 ```
 
-Le script copie `commands/*.md` dans `~/.claude/commands/` et `skills/*` dans
-`~/.claude/skills/`. Il refuse d'écraser un fichier existant sauf avec `--force`,
+Le script copie `commands/*.md` dans `~/.claude/commands/`, `skills/*` dans
+`~/.claude/skills/` et `bin/claude-clean.sh` dans `~/bin/`. Il refuse d'écraser un fichier existant sauf avec `--force`,
 et `--link` pose des liens symboliques plutôt que des copies (pratique pour suivre
 les mises à jour du dépôt). Redémarre Claude Code ensuite : les commandes apparaissent
 avec `/`.
@@ -53,6 +71,13 @@ Installation manuelle, si tu préfères choisir :
 ```bash
 cp commands/ancrer.md ~/.claude/commands/
 cp -R skills/scan-secrets ~/.claude/skills/
+cp bin/claude-clean.sh ~/bin/ && chmod +x ~/bin/claude-clean.sh
+```
+
+Pour l'alias `cl`, ajoute à ton `~/.zshrc` (ou `~/.bashrc`) :
+
+```bash
+alias cl='~/bin/claude-clean.sh'
 ```
 
 ### Portée
