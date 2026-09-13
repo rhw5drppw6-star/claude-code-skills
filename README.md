@@ -1,7 +1,7 @@
 # Skills & commandes perso pour Claude Code
 
-Sept extensions que j'utilise au quotidien dans [Claude Code](https://claude.com/claude-code) :
-cinq commandes (`~/.claude/commands/`) et deux skills multi-fichiers (`~/.claude/skills/`).
+Huit extensions que j'utilise au quotidien dans [Claude Code](https://claude.com/claude-code) :
+cinq commandes (`~/.claude/commands/`) et trois skills (`~/.claude/skills/`).
 Écrites en français, testées sur des dépôts réels.
 
 ## Ce qu'il y a dedans
@@ -32,6 +32,7 @@ doit survivre de ce qui doit disparaître.
 |---|---|
 | `scan-secrets` | Barrière anti-fuite de secrets : TruffleHog dans Docker + un hook `pre-commit` **fail-closed**. La règle centrale : un code de sortie non nul sans résultats ne veut pas dire « propre », il veut dire *« je n'ai rien regardé »*. Le hook ne scanne que ce qui part au commit (2–4 s), l'audit `/scan-secrets` scanne le disque. |
 | `prompt-studio-optimizer` | Idée brute → spécification limpide + prompts atomiques testables. Sa première règle est de **savoir se taire** : une demande déjà précise ne reçoit aucune question. |
+| `stagiaire` | Mode « stagiaire » : base théorique solide, zéro expérience terrain, zéro improvisation. Chaque demande passe par trois étapes — **recherche des sources**, **justification soumise à validation** (aucune écriture avant le « oui »), puis **exécution stricte** du cadre validé, sans extrapolation. Une validation ne couvre que la démarche pour laquelle elle a été donnée. |
 
 ## Installation
 
@@ -63,7 +64,7 @@ cp -R skills/scan-secrets ~/.claude/skills/
 
 Seul `scan-secrets` en a : **Docker** (il exécute l'image officielle
 `trufflesecurity/trufflehog`). Son serveur MCP optionnel demande en plus le paquet Python
-`mcp`. Les cinq commandes n'ont besoin de rien d'autre que Claude Code.
+`mcp`. Les cinq commandes et les deux autres skills n'ont besoin de rien d'autre que Claude Code.
 
 ## Écrire la sienne
 
